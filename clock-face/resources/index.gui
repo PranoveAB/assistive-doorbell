@@ -1,0 +1,5 @@
+<svg>
+  <g>
+    <text id="timeLabel" x="50%" y="50%" text-anchor="middle" font-size="60" fill="white">00:00</text>
+  </g>
+</svg>
