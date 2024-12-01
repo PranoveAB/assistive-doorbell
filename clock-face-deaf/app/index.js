@@ -45,7 +45,8 @@ timeLabel.text = `${hours}:${mins}`;
 display.poke();
 });
 
-let prevMinute = -1;  // Initialize with invalid value to ensure first poke
+
+/* -------------------------------------- Notification Handling -------------------------------------- */
 
 // Function to handle background flashing
 function startFlashing(color) {
@@ -118,32 +119,38 @@ function showBatteryStatus(level) {
   }, 10000);  // 10 seconds as per your requirement
 }
 
-// Doorbell - Three strong, clear nudges, stops after 6 seconds
+/* -------------------------------------- Vibration Patterns -------------------------------------- */
+
+// Doorbell - traditional ding dong pattern, runs for 6 seconds
 function doorbellPattern() {
     let timer = 0;
-    const maxDuration = 6000;
+    const maxDuration = 10000;
     
     const pattern = () => {
-        for(let i = 0; i < 3; i++) {
+        // "Ding" - quick high intensity
+        vibration.start("nudge-max");
+        setTimeout(() => {
+            vibration.stop();
+            // Short pause
             setTimeout(() => {
-                vibration.start("nudge-max");
-                setTimeout(() => vibration.stop(), 300);
-            }, i * 500);
-        }
+                // "Dong" - longer, lower intensity
+                vibration.start("confirmation");
+                setTimeout(() => vibration.stop(), 400);
+            }, 200);
+        }, 200);
     };
 
-    // Start immediately
     pattern();
 
     const intervalId = setInterval(() => {
-        timer += 2000;
+        timer += 1500;
         if (timer >= maxDuration) {
             clearInterval(intervalId);
             vibration.stop();
             return;
         }
         pattern();
-    }, 2000);
+    }, 1500);
 }
 
 // SOS - Distinct pattern based on actual SOS (... --- ...), stops after 15 seconds
@@ -191,112 +198,189 @@ function sosPattern() {
     }, patternDuration);
 }
 
-// For passcode patterns, example with 221:
 function passcode221Pattern() {
     let timer = 0;
-    const maxDuration = 6000;
+    const maxDuration = 15000;
     
     const pattern = () => {
-        for(let i = 0; i < 2; i++) {
+        // Initial 3-second continuous vibration
+        vibration.start("ring");
+        setTimeout(() => {
+            vibration.stop();
+            
+            // Start the actual pattern after a brief pause
             setTimeout(() => {
+                // First "2": two quick pulses close together
                 vibration.start("confirmation");
                 setTimeout(() => {
                     vibration.stop();
                     setTimeout(() => {
                         vibration.start("confirmation");
                         setTimeout(() => vibration.stop(), 200);
-                    }, 200);
+                    }, 300);
                 }, 200);
-            }, i * 1000);
-        }
-    };
 
-    // Start immediately
-    pattern();
-
-    const intervalId = setInterval(() => {
-        timer += 2500;
-        if (timer >= maxDuration) {
-            clearInterval(intervalId);
-            vibration.stop();
-            return;
-        }
-        pattern();
-    }, 2500);
-}
-
-function passcode222Pattern() {
-    let timer = 0;
-    const maxDuration = 6000;
-  
-    const pattern = () => {
-        setTimeout(() => {
-            vibration.start("ping");
-            setTimeout(() => {
-                vibration.stop();
+                // Second "2" after clear pause
                 setTimeout(() => {
                     vibration.start("confirmation");
                     setTimeout(() => {
                         vibration.stop();
                         setTimeout(() => {
-                            vibration.start("nudge-max");
-                            setTimeout(() => vibration.stop(), 300);
-                        }, 400);
-                    }, 300);
-                }, 400);
-            }, 200);
-        }, 0);
+                            vibration.start("confirmation");
+                            setTimeout(() => vibration.stop(), 200);
+                        }, 300);
+                    }, 200);
+                }, 1500);
+
+                // Final "1" after another clear pause
+                setTimeout(() => {
+                    vibration.start("confirmation");
+                    setTimeout(() => vibration.stop(), 500);
+                }, 3000);
+            }, 500); // Small gap after initial alert
+        }, 2000); // Duration of initial alert
     };
-  
-    // Start immediately
+
     pattern();
-  
+
     const intervalId = setInterval(() => {
-        timer += 2000;
+        timer += 7500;  // Increased to account for initial alert
         if (timer >= maxDuration) {
             clearInterval(intervalId);
             vibration.stop();
             return;
         }
-        pattern();
-    }, 2000);
+        pattern(); // Will start with alert again
+    }, 7500);
 }
 
-// Passcode 223 - Short-Long-Short pattern, runs for 6 seconds
-function passcode223Pattern() {
+function passcode222Pattern() {
     let timer = 0;
-    const maxDuration = 6000;
-  
+    const maxDuration = 15000;
+    
     const pattern = () => {
-        vibration.start("nudge-max");
+        // Initial 3-second continuous vibration
+        vibration.start("ring");
         setTimeout(() => {
             vibration.stop();
+            
             setTimeout(() => {
-                vibration.start("nudge-max");
+                // First "2": two quick pulses
+                vibration.start("confirmation");
                 setTimeout(() => {
                     vibration.stop();
                     setTimeout(() => {
-                        vibration.start("nudge-max");
+                        vibration.start("confirmation");
                         setTimeout(() => vibration.stop(), 200);
                     }, 300);
-                }, 800);
-            }, 300);
-        }, 200);
+                }, 200);
+
+                // Second "2" after pause
+                setTimeout(() => {
+                    vibration.start("confirmation");
+                    setTimeout(() => {
+                        vibration.stop();
+                        setTimeout(() => {
+                            vibration.start("confirmation");
+                            setTimeout(() => vibration.stop(), 200);
+                        }, 300);
+                    }, 200);
+                }, 1500);
+
+                // Third "2" after pause
+                setTimeout(() => {
+                    vibration.start("confirmation");
+                    setTimeout(() => {
+                        vibration.stop();
+                        setTimeout(() => {
+                            vibration.start("confirmation");
+                            setTimeout(() => vibration.stop(), 200);
+                        }, 300);
+                    }, 200);
+                }, 3000);
+            }, 500);
+        }, 2000);
     };
-  
-    // Start immediately
+
     pattern();
-  
+
     const intervalId = setInterval(() => {
-        timer += 2000;
+        timer += 7500;
         if (timer >= maxDuration) {
             clearInterval(intervalId);
             vibration.stop();
             return;
         }
         pattern();
-    }, 2000);
-  }
+    }, 7500);
+}
+
+function passcode223Pattern() {
+    let timer = 0;
+    const maxDuration = 15000;
+    
+    const pattern = () => {
+        // Initial 3-second continuous vibration
+        vibration.start("ring");
+        setTimeout(() => {
+            vibration.stop();
+            
+            setTimeout(() => {
+                // First "2": two quick pulses
+                vibration.start("confirmation");
+                setTimeout(() => {
+                    vibration.stop();
+                    setTimeout(() => {
+                        vibration.start("confirmation");
+                        setTimeout(() => vibration.stop(), 200);
+                    }, 300);
+                }, 200);
+
+                // Second "2" after pause
+                setTimeout(() => {
+                    vibration.start("confirmation");
+                    setTimeout(() => {
+                        vibration.stop();
+                        setTimeout(() => {
+                            vibration.start("confirmation");
+                            setTimeout(() => vibration.stop(), 200);
+                        }, 300);
+                    }, 200);
+                }, 1500);
+
+                // "3": three quick pulses after pause
+                setTimeout(() => {
+                    vibration.start("confirmation");
+                    setTimeout(() => {
+                        vibration.stop();
+                        setTimeout(() => {
+                            vibration.start("confirmation");
+                            setTimeout(() => {
+                                vibration.stop();
+                                setTimeout(() => {
+                                    vibration.start("confirmation");
+                                    setTimeout(() => vibration.stop(), 200);
+                                }, 300);
+                            }, 300);
+                        }, 300);
+                    }, 200);
+                }, 3000);
+            }, 500);
+        }, 2000);
+    };
+
+    pattern();
+
+    const intervalId = setInterval(() => {
+        timer += 7500;
+        if (timer >= maxDuration) {
+            clearInterval(intervalId);
+            vibration.stop();
+            return;
+        }
+        pattern();
+    }, 7500);
+}
 
 // Battery alert vibration patterns, all run for 10 seconds
 // For battery alerts, example with 20%:
@@ -305,17 +389,17 @@ function batteryAlert20() {
     const maxDuration = 10000;
 
     const pattern = () => {
+        // Two gentle reminders spaced apart
         vibration.start("ping");
         setTimeout(() => {
             vibration.stop();
             setTimeout(() => {
                 vibration.start("ping");
-                setTimeout(() => vibration.stop(), 500);
-            }, 500);
-        }, 500);
+                setTimeout(() => vibration.stop(), 300);
+            }, 800); // Longer pause between pulses = less urgent
+        }, 300);
     };
 
-    // Start immediately
     pattern();
 
     const intervalId = setInterval(() => {
@@ -329,60 +413,76 @@ function batteryAlert20() {
     }, 2000);
 }
 
+// Battery 15%: Middle urgency pattern
 function batteryAlert15() {
     let timer = 0;
     const maxDuration = 10000;
-  
-    const pattern = () => {
-        for(let i = 0; i < 3; i++) {
-            setTimeout(() => {
-                vibration.start("confirmation");
-                setTimeout(() => vibration.stop(), 300);
-            }, i * 400);
-        }
-    };
-  
-    // Start immediately
-    pattern();
-  
-    const intervalId = setInterval(() => {
-        timer += 2000;
-        if (timer >= maxDuration) {
-            clearInterval(intervalId);
-            vibration.stop();
-            return;
-        }
-        pattern();
-    }, 2000);
-  }
-  
-  function batteryAlert10() {
-    let timer = 0;
-    const maxDuration = 10000;
-  
-    const pattern = () => {
-        for(let i = 0; i < 5; i++) {
-            setTimeout(() => {
-                vibration.start("nudge-max");
-                setTimeout(() => vibration.stop(), 200);
-            }, i * 300);
-        }
-    };
-  
-    // Start immediately
-    pattern();
-  
-    const intervalId = setInterval(() => {
-        timer += 2000;
-        if (timer >= maxDuration) {
-            clearInterval(intervalId);
-            vibration.stop();
-            return;
-        }
-        pattern();
-    }, 2000);
-  }
 
+    const pattern = () => {
+        // First pulse: medium intensity
+        vibration.start("confirmation");
+        setTimeout(() => {
+            vibration.stop();
+            // Short pause
+            setTimeout(() => {
+                // Second pulse: stronger
+                vibration.start("nudge");
+                setTimeout(() => {
+                    vibration.stop();
+                    // Another short pause
+                    setTimeout(() => {
+                        // Final pulse: strongest
+                        vibration.start("nudge-max");
+                        setTimeout(() => vibration.stop(), 300);
+                    }, 300);
+                }, 300);
+            }, 300);
+        }, 300);
+    };
+
+    pattern();
+
+    const intervalId = setInterval(() => {
+        timer += 2000;
+        if (timer >= maxDuration) {
+            clearInterval(intervalId);
+            vibration.stop();
+            return;
+        }
+        pattern();
+    }, 2000);
+}
+  
+// Battery 10%: Urgent pattern
+function batteryAlert10() {
+let timer = 0;
+const maxDuration = 10000;
+
+const pattern = () => {
+    // Urgent pattern: quick pulses getting stronger
+    for(let i = 0; i < 3; i++) {
+        setTimeout(() => {
+            vibration.start(i === 2 ? "nudge-max" : i === 1 ? "confirmation" : "ping");
+            setTimeout(() => vibration.stop(), 200);
+        }, i * 250); // Shorter gaps = more urgent
+    }
+};
+
+// Start immediately
+pattern();
+
+const intervalId = setInterval(() => {
+    timer += 2000;
+    if (timer >= maxDuration) {
+        clearInterval(intervalId);
+        vibration.stop();
+        return;
+    }
+    pattern();
+}, 2000);
+}
+
+/* -------------------------------------- Messaging -------------------------------------- */
 
 function triggerNotification(eventType) {
   console.log(`Notification triggered for event: ${eventType}`);
@@ -404,7 +504,7 @@ function triggerNotification(eventType) {
   }
   else if(eventType.indexOf("correct_input") === 0) {
       const passcode = eventType.split("_")[2];
-      showNotification(`Access for: ${passcode}`, "#00FF00", 6000); // Green background
+      showNotification(`Access for: ${passcode}`, "#00FF00", 15000, true); // Green background
       switch (passcode) {
           case "221":
               passcode221Pattern();
