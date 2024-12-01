@@ -3,22 +3,25 @@ Code for the fitbit companion app for the Assistive Doorbell.
 Author: Pranove Basavarajappa
 */
 
-
 import { peerSocket } from "messaging";
 import { me as companion } from "companion";
 
 // Set up a WebSocket connection using the correct URL
 let socket;
-let heartbeatInterval;
 
 function connectWebSocket() {
-  // Use your actual WebSocket URL here (ensure your backend supports WebSockets)
   socket = new WebSocket("wss://infinite-temple-27946-ed712ccc14aa.herokuapp.com/signal");
 
   // When the connection is open
   socket.onopen = () => {
     console.log("WebSocket connection opened");
-    startHeartbeat();
+  };
+
+  // Handle ping from server
+  socket.onping = () => {
+    console.log('Received ping from server');
+    socket.pong();
+    console.log('Sent pong to server');
   };
 
   // When receiving a message from the server
@@ -27,7 +30,7 @@ function connectWebSocket() {
 
     let data;
     try {
-      data = JSON.parse(event.data); // Parse the received data
+      data = JSON.parse(event.data);
     } catch (error) {
       console.error("Error parsing JSON:", error);
       return;
@@ -35,20 +38,21 @@ function connectWebSocket() {
 
     // Prepare message object to send to device
     let message = {
-      vibrate: data.triggerVibration, // Include vibration status
+      vibrate: data.triggerVibration,
+      eventType: data.currentEvent
     };
 
-    // Check if currentEvent exists before using it
-    if (data.currentEvent) {
-      message.eventType = data.currentEvent;   // Include the event type
-      
-      // If it's a correct input event, extract and include the passcode in the message
-      if (data.currentEvent.startsWith("correct_input")) {
-        const passcode = data.currentEvent.split("_")[2]; // Extract passcode from event type
-        message.passcode = passcode;
-      }
+    // Add batteryLevel for battery events
+    if (data.currentEvent && data.currentEvent.indexOf("low_battery_") === 0) {
+      const batteryLevel = data.currentEvent.split("_")[2];
+      message.batteryLevel = parseInt(batteryLevel);
+    }
+    
+    // If it's a correct input event, extract and include the passcode
+    if (data.currentEvent && data.currentEvent.indexOf("correct_input") === 0) {
+      const passcode = data.currentEvent.split("_")[2];
+      message.passcode = passcode;
     } else if (data.passcode) {
-      // If there's no currentEvent but there is a passcode, include it directly
       message.passcode = data.passcode;
     }
 
@@ -64,20 +68,8 @@ function connectWebSocket() {
   // Handle connection closure and attempt reconnection
   socket.onclose = () => {
     console.log("WebSocket connection closed. Reconnecting...");
-    clearInterval(heartbeatInterval);
-    setTimeout(connectWebSocket, 3000); // Attempt reconnection after 3 seconds
+    setTimeout(connectWebSocket, 3000);
   };
-}
-
-// Start the heartbeat
-function startHeartbeat() {
-  clearInterval(heartbeatInterval);
-  heartbeatInterval = setInterval(() => {
-    if (socket.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify({ type: "heartbeat" }));
-      console.log("Heartbeat sent");
-    }
-  }, 30000); // Send heartbeat every 30 seconds
 }
 
 // Send message to Fitbit device

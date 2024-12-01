@@ -1,0 +1,27 @@
+{
+  "name": "clock-face-deaf",
+  "version": "0.1.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "@fitbit/sdk": "~4.2.0",
+    "@fitbit/sdk-cli": "^1.7.3"
+  },
+  "fitbit": {
+    "appUUID": "8642bd2b-2a0c-4e83-95eb-d8c7b3e9f041",
+    "appType": "clockface",
+    "appDisplayName": "Deaf Assist Clock",
+    "iconFile": "resources/icon.png",
+    "wipeColor": "#ffffff",
+    "requestedPermissions": ["access_internet", "run_background"],
+    "buildTargets": [
+      "mira"
+    ],
+    "i18n": {},
+    "defaultLanguage": "en-US"
+  },
+  "scripts": {
+    "build": "fitbit-build",
+    "debug": "fitbit"
+  }
+}
