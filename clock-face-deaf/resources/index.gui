@@ -1,24 +1,39 @@
 <svg>
+  <!-- Background with improved semantic meaning -->
   <rect id="background" width="100%" height="100%" fill="black"/>
-  <text id="timeLabel" x="50%" y="30%" 
+  
+  <!-- Time display with improved contrast and readability -->
+  <text id="timeLabel" 
+        x="50%" y="30%" 
         text-anchor="middle" 
-        font-size="60" 
+        font-size="65"
+        font-family="System-Bold"
         fill="white"
-        text-length="32">00:00</text>
+        text-length="32"
+        opacity="0.95">00:00</text>
+  
+  <!-- Notification area with enhanced accessibility -->
+  <rect id="notificationBackground" 
+        x="10%" y="45%" 
+        width="80%" height="20%" 
+        fill="none"
+        display="none"/>
   <text id="notificationText" 
-        x="50%" y="60%" 
+        x="50%" y="55%" 
         text-anchor="middle" 
-        font-size="35" 
+        font-size="50" 
+        font-family="System-Bold"
         fill="white"
         text-length="64"
-        display="none"
-        layer="1">Notification</text>
+        display="none">Notification</text>
+  
+  <!-- Battery status with enhanced visibility -->
   <text id="batteryText" 
         x="50%" y="75%" 
         text-anchor="middle" 
-        font-size="35" 
+        font-size="45"  
+        font-family="System-Bold"
         fill="white"
         text-length="32"
-        display="none"
-        layer="1">Battery: 100%</text>
+        display="none">Battery: 100%</text>
 </svg>

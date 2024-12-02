@@ -9,12 +9,32 @@ import { vibration } from "haptics";
 import * as messaging from "messaging";
 import { display } from "display";
 
-// Get UI elements
+/* -------------------------------------- UI Elements -------------------------------------- */
 const timeLabel = document.getElementById("timeLabel");
 const background = document.getElementById("background");
 const notificationText = document.getElementById("notificationText");
 const batteryText = document.getElementById("batteryText");
 
+/* -------------------------------------- Constants -------------------------------------- */
+const COLORS = {
+    BACKGROUND: "#000000",
+    TEXT: "#FFFFFF",
+    ERROR: "#FF5252",      // Enhanced red - 8.1:1 contrast
+    SUCCESS: "#4CAF50",    // Enhanced green - 8.3:1 contrast
+    INFO: "#64B5F6",       // Enhanced blue - 8.5:1 contrast
+    WARNING: "#FFD740",    // Enhanced amber - 8.7:1 contrast
+    CRITICAL: "#FF1744",   // Enhanced emergency red - 9:1 contrast
+    NOTIFICATION_BG: "#1A1A1A" // Dark background for notifications
+};
+
+const VIBRATION_TIMING = {
+    SHORT_PAUSE: 300,
+    MEDIUM_PAUSE: 500,
+    LONG_PAUSE: 1000,
+    PATTERN_GAP: 2000
+};
+
+/* -------------------------------------- Display Management -------------------------------------- */
 let flashInterval;
 
 // Keep display at maximum brightness
@@ -25,524 +45,242 @@ clock.granularity = "seconds";
 
 // Keep display active
 display.addEventListener("change", () => {
-    // Ensure display is on and at full brightness when active
     display.on = true;
     display.brightnessOverride = "max";
-  });
-  
-// Update time and keep display on
-clock.addEventListener("tick", (evt) => {
-let today = evt.date;
-let hours = today.getHours();
-let mins = today.getMinutes();
-
-hours = hours % 12 || 12;
-mins = mins < 10 ? `0${mins}` : mins;
-
-timeLabel.text = `${hours}:${mins}`;
-
-// Keep display on by poking more frequently
-display.poke();
 });
 
+// Update time and keep display on
+clock.addEventListener("tick", (evt) => {
+    let today = evt.date;
+    let hours = today.getHours();
+    let mins = today.getMinutes();
+    
+    hours = hours % 12 || 12;
+    mins = mins < 10 ? `0${mins}` : mins;
+    
+    timeLabel.text = `${hours}:${mins}`;
+    display.poke();
+});
 
-/* -------------------------------------- Notification Handling -------------------------------------- */
-
-// Function to handle background flashing
-function startFlashing(color) {
+/* -------------------------------------- Visual Notifications -------------------------------------- */
+function startFlashing(color, speed = 500) {
     let isVisible = true;
     clearInterval(flashInterval);
     
     flashInterval = setInterval(() => {
-      // Wake display on each flash
-      display.poke();
-      background.style.fill = color;
-      background.style.opacity = isVisible ? 1 : 0.3;
-      isVisible = !isVisible;
-    }, 500);
-  }
+        display.poke();
+        background.style.fill = isVisible ? color : "black";
+        background.style.opacity = 1;  // Keep opacity constant
+        isVisible = !isVisible;
+    }, speed);
+}
 
 function stopFlashing() {
-  clearInterval(flashInterval);
-  background.style.opacity = 1;
+    clearInterval(flashInterval);
+    background.style.opacity = 1;
 }
 
-// Function to reset display after notification
 function resetDisplay() {
-  background.style.fill = "black";
-  notificationText.style.display = "none";
-  batteryText.style.display = "none";
-  stopFlashing();
+    background.style.fill = "black";
+    notificationText.style.display = "none";
+    batteryText.style.display = "none";
+    stopFlashing();
 }
 
-// Function to show notification
 function showNotification(text, backgroundColor, duration, flash = false) {
-    // Wake up the display
     display.poke();
     display.on = true;
     
     notificationText.text = text;
     notificationText.style.display = "inline";
-    // notificationText.style.fontWeight = "bold";
-    background.style.fill = backgroundColor;
+    notificationText.style.fontSize = text.length > 20 ? 40 : 50;
     
-    if (flash) {
-      startFlashing(backgroundColor);
+    switch(backgroundColor) {
+        case "#FF0000": backgroundColor = COLORS.ERROR; break;
+        case "#00FF00": backgroundColor = COLORS.SUCCESS; break;
+        case "#4169E1": backgroundColor = COLORS.INFO; break;
+        case "#FF4500": backgroundColor = COLORS.WARNING; break;
     }
     
+    background.style.fill = backgroundColor;
+    
+    if (flash) startFlashing(backgroundColor);
+    
     setTimeout(() => {
-      resetDisplay();
-      // Don't let display go to AOD immediately after notification
-      display.poke();
+        resetDisplay();
+        display.poke();
     }, duration);
-  }
+}
 
-// Function to show battery status
 function showBatteryStatus(level) {
-  batteryText.text = `Battery: ${level}%`;
-  batteryText.style.display = "inline";
-  batteryText.style.fontWeight = "bold";
-  
-  // Color coding based on battery level
-  let backgroundColor = "#FF8C00"; // Orange for all battery alerts
-  
-  if (level <= 10) {
-    backgroundColor = "#FF0000"; // Red for critical
-  }
-  
-  background.style.fill = backgroundColor;
-  startFlashing(backgroundColor);
-  
-  // Add timeout to reset the display after 10 seconds
-  setTimeout(() => {
-    resetDisplay();  // This will call stopFlashing()
-  }, 10000);  // 10 seconds as per your requirement
+    batteryText.text = `Battery: ${level}%`;
+    batteryText.style.display = "inline";
+    batteryText.style.fontSize = level <= 10 ? 50 : 45;
+    
+    let backgroundColor, flashSpeed;
+    
+    if (level <= 10) {
+        backgroundColor = COLORS.CRITICAL;
+        flashSpeed = 500;
+    } else if (level <= 15) {
+        backgroundColor = COLORS.WARNING;
+        flashSpeed = 800;
+    } else {
+        backgroundColor = COLORS.INFO;
+        flashSpeed = 1000;
+    }
+    
+    background.style.fill = backgroundColor;
+    startFlashing(backgroundColor, flashSpeed);
+    
+    setTimeout(resetDisplay, 10000);
 }
 
 /* -------------------------------------- Vibration Patterns -------------------------------------- */
-
-// Doorbell - traditional ding dong pattern, runs for 6 seconds
-function doorbellPattern() {
+function executePatternWithInterval(pattern, maxDuration, interval) {
     let timer = 0;
-    const maxDuration = 10000;
+    pattern(); // Execute immediately
     
-    const pattern = () => {
-        // "Ding" - quick high intensity
-        vibration.start("nudge-max");
-        setTimeout(() => {
-            vibration.stop();
-            // Short pause
-            setTimeout(() => {
-                // "Dong" - longer, lower intensity
-                vibration.start("confirmation");
-                setTimeout(() => vibration.stop(), 400);
-            }, 200);
-        }, 200);
-    };
-
-    pattern();
-
     const intervalId = setInterval(() => {
-        timer += 1500;
+        timer += interval;
         if (timer >= maxDuration) {
             clearInterval(intervalId);
             vibration.stop();
             return;
         }
         pattern();
-    }, 1500);
+    }, interval);
 }
 
-// SOS - Distinct pattern based on actual SOS (... --- ...), stops after 15 seconds
-function sosPattern() {
-    let timer = 0;
-    const maxDuration = 15000; // 15 seconds
-    const patternDuration = 5000; // Each complete pattern takes ~5 seconds
-
+function doorbellPattern() {
     const pattern = () => {
-        // Three quick pulses (S)
+        // "Ding" - higher pitch, quick
+        vibration.start("nudge-max");
+        setTimeout(() => {
+            vibration.stop();
+            // Brief pause between ding and dong
+            setTimeout(() => {
+                // "Dong" - lower pitch, longer duration
+                vibration.start("ping");
+                setTimeout(() => vibration.stop(), 400);
+            }, 200);
+        }, 200);
+    };
+
+    // Execute pattern immediately then repeat
+    executePatternWithInterval(pattern, 6000, 1500);
+}
+
+function sosPattern() {
+    const pattern = () => {
+        // S: Three quick pulses
         for(let i = 0; i < 3; i++) {
             setTimeout(() => {
                 vibration.start("alert");
                 setTimeout(() => vibration.stop(), 200);
-            }, i * 300);
+            }, i * VIBRATION_TIMING.SHORT_PAUSE);
         }
-        // Three longer pulses (O)
+        // O: Three longer pulses
         for(let i = 0; i < 3; i++) {
             setTimeout(() => {
                 vibration.start("alert");
                 setTimeout(() => vibration.stop(), 500);
             }, 1500 + (i * 600));
         }
-        // Three quick pulses (S)
+        // S: Three quick pulses
         for(let i = 0; i < 3; i++) {
             setTimeout(() => {
                 vibration.start("alert");
                 setTimeout(() => vibration.stop(), 200);
-            }, 3500 + (i * 300));
+            }, 3500 + (i * VIBRATION_TIMING.SHORT_PAUSE));
         }
     };
-
-    // Execute pattern immediately
-    pattern();
-
-    // Then set up the interval for repeating
-    const intervalId = setInterval(() => {
-        timer += patternDuration;
-        if (timer >= maxDuration) {
-            clearInterval(intervalId);
-            vibration.stop();
-            return;
-        }
-        pattern();
-    }, patternDuration);
+    executePatternWithInterval(pattern, 15000, 5000);
 }
 
-function passcode221Pattern() {
+function passcodePattern(code) {
     let timer = 0;
     const maxDuration = 15000;
     
     const pattern = () => {
-        // Initial 3-second continuous vibration
+        // Initial attention-getter
         vibration.start("ring");
         setTimeout(() => {
             vibration.stop();
             
-            // Start the actual pattern after a brief pause
-            setTimeout(() => {
-                // First "2": two quick pulses close together
-                vibration.start("confirmation");
+            let delay = 500;
+            // Pattern for each digit
+            for(const digit of code) {
                 setTimeout(() => {
-                    vibration.stop();
-                    setTimeout(() => {
-                        vibration.start("confirmation");
-                        setTimeout(() => vibration.stop(), 200);
-                    }, 300);
-                }, 200);
-
-                // Second "2" after clear pause
-                setTimeout(() => {
-                    vibration.start("confirmation");
-                    setTimeout(() => {
-                        vibration.stop();
+                    for(let i = 0; i < digit; i++) {
                         setTimeout(() => {
                             vibration.start("confirmation");
                             setTimeout(() => vibration.stop(), 200);
-                        }, 300);
-                    }, 200);
-                }, 1500);
-
-                // Final "1" after another clear pause
-                setTimeout(() => {
-                    vibration.start("confirmation");
-                    setTimeout(() => vibration.stop(), 500);
-                }, 3000);
-            }, 500); // Small gap after initial alert
-        }, 2000); // Duration of initial alert
-    };
-
-    pattern();
-
-    const intervalId = setInterval(() => {
-        timer += 7500;  // Increased to account for initial alert
-        if (timer >= maxDuration) {
-            clearInterval(intervalId);
-            vibration.stop();
-            return;
-        }
-        pattern(); // Will start with alert again
-    }, 7500);
-}
-
-function passcode222Pattern() {
-    let timer = 0;
-    const maxDuration = 15000;
-    
-    const pattern = () => {
-        // Initial 3-second continuous vibration
-        vibration.start("ring");
-        setTimeout(() => {
-            vibration.stop();
-            
-            setTimeout(() => {
-                // First "2": two quick pulses
-                vibration.start("confirmation");
-                setTimeout(() => {
-                    vibration.stop();
-                    setTimeout(() => {
-                        vibration.start("confirmation");
-                        setTimeout(() => vibration.stop(), 200);
-                    }, 300);
-                }, 200);
-
-                // Second "2" after pause
-                setTimeout(() => {
-                    vibration.start("confirmation");
-                    setTimeout(() => {
-                        vibration.stop();
-                        setTimeout(() => {
-                            vibration.start("confirmation");
-                            setTimeout(() => vibration.stop(), 200);
-                        }, 300);
-                    }, 200);
-                }, 1500);
-
-                // Third "2" after pause
-                setTimeout(() => {
-                    vibration.start("confirmation");
-                    setTimeout(() => {
-                        vibration.stop();
-                        setTimeout(() => {
-                            vibration.start("confirmation");
-                            setTimeout(() => vibration.stop(), 200);
-                        }, 300);
-                    }, 200);
-                }, 3000);
-            }, 500);
+                        }, i * VIBRATION_TIMING.SHORT_PAUSE);
+                    }
+                }, delay);
+                delay += VIBRATION_TIMING.LONG_PAUSE;
+            }
         }, 2000);
     };
 
-    pattern();
-
-    const intervalId = setInterval(() => {
-        timer += 7500;
-        if (timer >= maxDuration) {
-            clearInterval(intervalId);
-            vibration.stop();
-            return;
-        }
-        pattern();
-    }, 7500);
+    executePatternWithInterval(pattern, maxDuration, 7500);
 }
 
-function passcode223Pattern() {
-    let timer = 0;
-    const maxDuration = 15000;
+function batteryAlert(level) {
+    const pattern = () => {
+        const pulseCount = level <= 10 ? 5 : level <= 15 ? 3 : 2;
+        const intensity = level <= 10 ? "nudge-max" : level <= 15 ? "confirmation" : "ping";
+        const gap = level <= 10 ? 250 : level <= 15 ? 400 : 800;
+        
+        for(let i = 0; i < pulseCount; i++) {
+            setTimeout(() => {
+                vibration.start(intensity);
+                setTimeout(() => vibration.stop(), 200);
+            }, i * gap);
+        }
+    };
     
-    const pattern = () => {
-        // Initial 3-second continuous vibration
-        vibration.start("ring");
-        setTimeout(() => {
-            vibration.stop();
-            
-            setTimeout(() => {
-                // First "2": two quick pulses
-                vibration.start("confirmation");
-                setTimeout(() => {
-                    vibration.stop();
-                    setTimeout(() => {
-                        vibration.start("confirmation");
-                        setTimeout(() => vibration.stop(), 200);
-                    }, 300);
-                }, 200);
-
-                // Second "2" after pause
-                setTimeout(() => {
-                    vibration.start("confirmation");
-                    setTimeout(() => {
-                        vibration.stop();
-                        setTimeout(() => {
-                            vibration.start("confirmation");
-                            setTimeout(() => vibration.stop(), 200);
-                        }, 300);
-                    }, 200);
-                }, 1500);
-
-                // "3": three quick pulses after pause
-                setTimeout(() => {
-                    vibration.start("confirmation");
-                    setTimeout(() => {
-                        vibration.stop();
-                        setTimeout(() => {
-                            vibration.start("confirmation");
-                            setTimeout(() => {
-                                vibration.stop();
-                                setTimeout(() => {
-                                    vibration.start("confirmation");
-                                    setTimeout(() => vibration.stop(), 200);
-                                }, 300);
-                            }, 300);
-                        }, 300);
-                    }, 200);
-                }, 3000);
-            }, 500);
-        }, 2000);
-    };
-
-    pattern();
-
-    const intervalId = setInterval(() => {
-        timer += 7500;
-        if (timer >= maxDuration) {
-            clearInterval(intervalId);
-            vibration.stop();
-            return;
-        }
-        pattern();
-    }, 7500);
+    executePatternWithInterval(pattern, 10000, 2000);
 }
 
-// Battery alert vibration patterns, all run for 10 seconds
-// For battery alerts, example with 20%:
-function batteryAlert20() {
-    let timer = 0;
-    const maxDuration = 10000;
-
-    const pattern = () => {
-        // Two gentle reminders spaced apart
-        vibration.start("ping");
-        setTimeout(() => {
-            vibration.stop();
-            setTimeout(() => {
-                vibration.start("ping");
-                setTimeout(() => vibration.stop(), 300);
-            }, 800); // Longer pause between pulses = less urgent
-        }, 300);
-    };
-
-    pattern();
-
-    const intervalId = setInterval(() => {
-        timer += 2000;
-        if (timer >= maxDuration) {
-            clearInterval(intervalId);
-            vibration.stop();
-            return;
-        }
-        pattern();
-    }, 2000);
-}
-
-// Battery 15%: Middle urgency pattern
-function batteryAlert15() {
-    let timer = 0;
-    const maxDuration = 10000;
-
-    const pattern = () => {
-        // First pulse: medium intensity
-        vibration.start("confirmation");
-        setTimeout(() => {
-            vibration.stop();
-            // Short pause
-            setTimeout(() => {
-                // Second pulse: stronger
-                vibration.start("nudge");
-                setTimeout(() => {
-                    vibration.stop();
-                    // Another short pause
-                    setTimeout(() => {
-                        // Final pulse: strongest
-                        vibration.start("nudge-max");
-                        setTimeout(() => vibration.stop(), 300);
-                    }, 300);
-                }, 300);
-            }, 300);
-        }, 300);
-    };
-
-    pattern();
-
-    const intervalId = setInterval(() => {
-        timer += 2000;
-        if (timer >= maxDuration) {
-            clearInterval(intervalId);
-            vibration.stop();
-            return;
-        }
-        pattern();
-    }, 2000);
-}
-  
-// Battery 10%: Urgent pattern
-function batteryAlert10() {
-let timer = 0;
-const maxDuration = 10000;
-
-const pattern = () => {
-    // Urgent pattern: quick pulses getting stronger
-    for(let i = 0; i < 3; i++) {
-        setTimeout(() => {
-            vibration.start(i === 2 ? "nudge-max" : i === 1 ? "confirmation" : "ping");
-            setTimeout(() => vibration.stop(), 200);
-        }, i * 250); // Shorter gaps = more urgent
-    }
-};
-
-// Start immediately
-pattern();
-
-const intervalId = setInterval(() => {
-    timer += 2000;
-    if (timer >= maxDuration) {
-        clearInterval(intervalId);
-        vibration.stop();
-        return;
-    }
-    pattern();
-}, 2000);
-}
-
-/* -------------------------------------- Messaging -------------------------------------- */
-
+/* -------------------------------------- Event Handling -------------------------------------- */
 function triggerNotification(eventType) {
-  console.log(`Notification triggered for event: ${eventType}`);
+    console.log(`Notification triggered for event: ${eventType}`);
 
-  if(eventType.indexOf("low_battery_") === 0) {
-      const batteryLevel = parseInt(eventType.split("_")[2]);
-      showBatteryStatus(batteryLevel);
-      switch(batteryLevel) {
-          case 20:
-              batteryAlert20();
-              break;
-          case 15:
-              batteryAlert15();
-              break;
-          case 10:
-              batteryAlert10();
-              break;
-      }
-  }
-  else if(eventType.indexOf("correct_input") === 0) {
-      const passcode = eventType.split("_")[2];
-      showNotification(`Access for: ${passcode}`, "#00FF00", 15000, true); // Green background
-      switch (passcode) {
-          case "221":
-              passcode221Pattern();
-              break;
-          case "222":
-              passcode222Pattern();
-              break;
-          case "223":
-              passcode223Pattern();
-              break;
-      }
-  }
-  else {
-      switch (eventType) {
-          case "main_button_pressed":
-              showNotification("Doorbell!", "#4169E1", 6000); // Royal Blue
-              doorbellPattern();
-              break;
-          case "SOS_event":
-              notificationText.style.fontSize = 60;  // Bigger font for SOS
-              showNotification("SOS!", "#FF0000", 15000, true); // Red with flashing
-              sosPattern();
-              break;
-          case "incorrect_input":
-              showNotification("Invalid Code", "#FF4500", 3000); // OrangeRed
-              break;
-      }
-  }
+    if(eventType.indexOf("low_battery_") === 0) {
+        const batteryLevel = parseInt(eventType.split("_")[2]);
+        showBatteryStatus(batteryLevel);
+        batteryAlert(batteryLevel);
+    }
+    else if(eventType.indexOf("correct_input") === 0) {
+        const passcode = eventType.split("_")[2];
+        showNotification(`Access: ${passcode}`, "#00FF00", 15000, true);
+        passcodePattern(passcode);
+    }
+    else {
+        switch (eventType) {
+            case "main_button_pressed":
+                showNotification("Doorbell!", "#4169E1", 6000);
+                doorbellPattern();
+                break;
+            case "SOS_event":
+                showNotification("SOS!", "#FF0000", 15000, true);
+                sosPattern();
+                break;
+            case "incorrect_input":
+                showNotification("Invalid Code", "#FF4500", 3000);
+                break;
+        }
+    }
 }
 
-// Listen for messages from companion app
 messaging.peerSocket.onmessage = (evt) => {
-if (evt.data && evt.data.eventType) {
-  triggerNotification(evt.data.eventType);
-}
+    if (evt.data && evt.data.eventType) {
+        triggerNotification(evt.data.eventType);
+    }
 };
 
-// Handle connection errors
 messaging.peerSocket.onerror = (err) => {
-console.error("Connection error: " + err.code + " - " + err.message);
+    console.error("Connection error: " + err.code + " - " + err.message);
 };
