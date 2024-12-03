@@ -67,10 +67,15 @@ function startFlashing(color, speed = 500) {
     let isVisible = true;
     clearInterval(flashInterval);
     
+    const isLightColor = color === COLORS.SUCCESS || color === COLORS.WARNING;
+    const textColor = isLightColor ? "black" : "white";
+    
     flashInterval = setInterval(() => {
         display.poke();
         background.style.fill = isVisible ? color : "black";
-        background.style.opacity = 1;  // Keep opacity constant
+        timeLabel.style.fill = isVisible && isLightColor ? "black" : "white";
+        notificationText.style.fill = isVisible && isLightColor ? "black" : "white";
+        batteryText.style.fill = isVisible && isLightColor ? "black" : "white";
         isVisible = !isVisible;
     }, speed);
 }
@@ -84,6 +89,7 @@ function resetDisplay() {
     background.style.fill = "black";
     notificationText.style.display = "none";
     batteryText.style.display = "none";
+    timeLabel.style.fill = "white";  // Ensure time color is reset
     stopFlashing();
 }
 
@@ -93,21 +99,41 @@ function showNotification(text, backgroundColor, duration, flash = false) {
     
     notificationText.text = text;
     notificationText.style.display = "inline";
-    notificationText.style.fontSize = text.length > 20 ? 40 : 50;
     
+    // Map old colors to new WCAG-compliant colors and set text colors
     switch(backgroundColor) {
-        case "#FF0000": backgroundColor = COLORS.ERROR; break;
-        case "#00FF00": backgroundColor = COLORS.SUCCESS; break;
-        case "#4169E1": backgroundColor = COLORS.INFO; break;
-        case "#FF4500": backgroundColor = COLORS.WARNING; break;
+        case "#FF0000": 
+            backgroundColor = COLORS.ERROR;
+            notificationText.style.fill = "white";
+            timeLabel.style.fill = "white";
+            break;
+        case "#00FF00": 
+            backgroundColor = COLORS.SUCCESS;
+            notificationText.style.fill = "black";  
+            timeLabel.style.fill = "black";  // Time also black on green
+            break;
+        case "#4169E1": 
+            backgroundColor = COLORS.INFO;
+            notificationText.style.fill = "white";
+            timeLabel.style.fill = "white";
+            break;
+        case "#FF4500": 
+            backgroundColor = COLORS.WARNING;
+            notificationText.style.fill = "black";  
+            timeLabel.style.fill = "black";  // Time also black on yellow/amber
+            break;
     }
     
     background.style.fill = backgroundColor;
     
-    if (flash) startFlashing(backgroundColor);
+    if (flash) {
+        startFlashing(backgroundColor);
+    }
     
     setTimeout(() => {
         resetDisplay();
+        notificationText.style.fill = "white";  // Reset colors
+        timeLabel.style.fill = "white";
         display.poke();
     }, duration);
 }
@@ -122,18 +148,28 @@ function showBatteryStatus(level) {
     if (level <= 10) {
         backgroundColor = COLORS.CRITICAL;
         flashSpeed = 500;
+        batteryText.style.fill = "white";
+        timeLabel.style.fill = "white";
     } else if (level <= 15) {
         backgroundColor = COLORS.WARNING;
         flashSpeed = 800;
+        batteryText.style.fill = "black";
+        timeLabel.style.fill = "black";  // Time also black for warning
     } else {
         backgroundColor = COLORS.INFO;
         flashSpeed = 1000;
+        batteryText.style.fill = "white";
+        timeLabel.style.fill = "white";
     }
     
     background.style.fill = backgroundColor;
     startFlashing(backgroundColor, flashSpeed);
     
-    setTimeout(resetDisplay, 10000);
+    setTimeout(() => {
+        resetDisplay();
+        batteryText.style.fill = "white";  // Reset colors
+        timeLabel.style.fill = "white";
+    }, 10000);
 }
 
 /* -------------------------------------- Vibration Patterns -------------------------------------- */
@@ -203,12 +239,12 @@ function passcodePattern(code) {
     const maxDuration = 15000;
     
     const pattern = () => {
-        // Initial attention-getter
+        // Initial continuous vibration
         vibration.start("ring");
         setTimeout(() => {
             vibration.stop();
             
-            let delay = 500;
+            let delay = 1000;  // Increased initial delay after alert
             // Pattern for each digit
             for(const digit of code) {
                 setTimeout(() => {
@@ -216,12 +252,12 @@ function passcodePattern(code) {
                         setTimeout(() => {
                             vibration.start("confirmation");
                             setTimeout(() => vibration.stop(), 200);
-                        }, i * VIBRATION_TIMING.SHORT_PAUSE);
+                        }, i * 600);  // Increased from SHORT_PAUSE (300) to 800ms for better digit recognition
                     }
                 }, delay);
-                delay += VIBRATION_TIMING.LONG_PAUSE;
+                delay += 2000;  // Increased from LONG_PAUSE (1000) to 2000ms for better separation between digits
             }
-        }, 2000);
+        }, 1650);
     };
 
     executePatternWithInterval(pattern, maxDuration, 7500);
@@ -255,7 +291,22 @@ function triggerNotification(eventType) {
     }
     else if(eventType.indexOf("correct_input") === 0) {
         const passcode = eventType.split("_")[2];
-        showNotification(`Access: ${passcode}`, "#00FF00", 15000, true);
+        // Map passcodes to names
+        let visitorName;
+        switch(passcode) {
+            case "221":
+                visitorName = "Sam";
+                break;
+            case "222":
+                visitorName = "Jon";
+                break;
+            case "223":
+                visitorName = "Mike";
+                break;
+            default:
+                visitorName = "Unknown";
+        }
+        showNotification(`${visitorName} is here!`, "#00FF00", 15000, true);
         passcodePattern(passcode);
     }
     else {
