@@ -10,7 +10,7 @@ import { me as companion } from "companion";
 let socket;
 
 function connectWebSocket() {
-  socket = new WebSocket("wss://infinite-temple-27946-ed712ccc14aa.herokuapp.com/signal");
+  socket = new WebSocket("ws://10.0.0.172:3000/signal");
 
   // When the connection is open
   socket.onopen = () => {
@@ -42,18 +42,17 @@ function connectWebSocket() {
       eventType: data.currentEvent
     };
 
-    // Add batteryLevel only for battery events
-    if (data.currentEvent && data.currentEvent.startsWith("low_battery_")) {
+    // Add batteryLevel for battery events
+    if (data.currentEvent && data.currentEvent.indexOf("low_battery_") === 0) {
       const batteryLevel = data.currentEvent.split("_")[2];
       message.batteryLevel = parseInt(batteryLevel);
     }
     
     // If it's a correct input event, extract and include the passcode
-    if (data.currentEvent && data.currentEvent.startsWith("correct_input")) {
+    if (data.currentEvent && data.currentEvent.indexOf("correct_input") === 0) {
       const passcode = data.currentEvent.split("_")[2];
       message.passcode = passcode;
     } else if (data.passcode) {
-      // If there's no currentEvent but there is a passcode, include it directly
       message.passcode = data.passcode;
     }
 
