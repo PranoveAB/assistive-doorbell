@@ -1,6 +1,7 @@
 /*
 Code for the fitbit companion app for the Assistive Doorbell.
 Author: Pranove Basavarajappa
+Simplified for single-client message queue system
 */
 
 import { peerSocket } from "messaging";
@@ -8,8 +9,14 @@ import { me as companion } from "companion";
 
 // Set up a WebSocket connection using the correct URL
 let socket;
+let reconnectTimer;
 
 function connectWebSocket() {
+  // Clear any existing reconnect timer
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+  }
+
   socket = new WebSocket("ws://10.0.0.172:3000/signal");
 
   // When the connection is open
@@ -48,12 +55,22 @@ function connectWebSocket() {
       message.batteryLevel = parseInt(batteryLevel);
     }
     
-    // If it's a correct input event, extract and include the passcode
+    // If it's a correct input event, extract and include the passcode and visitor name
     if (data.currentEvent && data.currentEvent.indexOf("correct_input") === 0) {
       const passcode = data.currentEvent.split("_")[2];
       message.passcode = passcode;
+      
+      // Add the visitor name if provided by the server
+      if (data.visitorName) {
+        message.visitorName = data.visitorName;
+      }
     } else if (data.passcode) {
       message.passcode = data.passcode;
+      
+      // Add the visitor name if provided by the server
+      if (data.visitorName) {
+        message.visitorName = data.visitorName;
+      }
     }
 
     // Send the message to the device
@@ -67,8 +84,8 @@ function connectWebSocket() {
 
   // Handle connection closure and attempt reconnection
   socket.onclose = () => {
-    console.log("WebSocket connection closed. Reconnecting...");
-    setTimeout(connectWebSocket, 3000);
+    console.log("WebSocket connection closed. Reconnecting in 3 seconds...");
+    reconnectTimer = setTimeout(connectWebSocket, 3000);
   };
 }
 
@@ -76,7 +93,7 @@ function connectWebSocket() {
 function sendToDevice(message) {
   if (peerSocket.readyState === peerSocket.OPEN) {
     peerSocket.send(message);
-    console.log("Message sent:", JSON.stringify(message));
+    console.log("Message sent to watch:", JSON.stringify(message));
   } else {
     console.error("Peer socket is not open");
   }
@@ -94,3 +111,14 @@ peerSocket.onopen = () => {
 peerSocket.onerror = (err) => {
   console.error("Connection error: " + err.code + " - " + err.message);
 };
+
+// Handle Fitbit app lifecycle events
+companion.addEventListener("unload", () => {
+  // Clean up if the companion is unloaded
+  if (socket) {
+    socket.close();
+  }
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+  }
+});
