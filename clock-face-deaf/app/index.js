@@ -281,8 +281,12 @@ function batteryAlert(level) {
 }
 
 /* -------------------------------------- Event Handling -------------------------------------- */
-function triggerNotification(eventType) {
+function triggerNotification(eventType, visitorName = null) {
     console.log(`Notification triggered for event: ${eventType}`);
+    
+    if (visitorName) {
+        console.log(`Visitor name provided: ${visitorName}`);
+    }
 
     if(eventType.indexOf("low_battery_") === 0) {
         const batteryLevel = parseInt(eventType.split("_")[2]);
@@ -291,22 +295,14 @@ function triggerNotification(eventType) {
     }
     else if(eventType.indexOf("correct_input") === 0) {
         const passcode = eventType.split("_")[2];
-        // Map passcodes to names
-        let visitorName;
-        switch(passcode) {
-            case "221":
-                visitorName = "Sam";
-                break;
-            case "222":
-                visitorName = "Jon";
-                break;
-            case "223":
-                visitorName = "Mike";
-                break;
-            default:
-                visitorName = "Unknown";
-        }
-        showNotification(`${visitorName} is here!`, "#00FF00", 15000, true);
+        
+        // Use visitor name from server (passed as parameter) or fallback to "Unknown"
+        let displayName = visitorName || "Unknown";
+        
+        console.log(`Displaying visitor: ${displayName} for passcode: ${passcode}`);
+        
+        // Show notification with visitor name from server
+        showNotification(`${displayName} is here!`, "#00FF00", 15000, true);
         passcodePattern(passcode);
     }
     else {
@@ -327,8 +323,17 @@ function triggerNotification(eventType) {
 }
 
 messaging.peerSocket.onmessage = (evt) => {
+    console.log("Message received from companion:", JSON.stringify(evt.data));
+    
     if (evt.data && evt.data.eventType) {
-        triggerNotification(evt.data.eventType);
+        // Pass visitor name from companion to triggerNotification
+        const visitorName = evt.data.visitorName || null;
+        
+        if (visitorName) {
+            console.log(`Using visitor name from companion: ${visitorName}`);
+        }
+        
+        triggerNotification(evt.data.eventType, visitorName);
     }
 };
 

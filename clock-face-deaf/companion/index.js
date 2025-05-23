@@ -55,21 +55,32 @@ function connectWebSocket() {
       message.batteryLevel = parseInt(batteryLevel);
     }
     
-    // If it's a correct input event, extract and include the passcode and visitor name
+    // Handle correct input events with both passcode and visitor name from server
     if (data.currentEvent && data.currentEvent.indexOf("correct_input") === 0) {
+      // Extract passcode from event type
       const passcode = data.currentEvent.split("_")[2];
       message.passcode = passcode;
       
-      // Add the visitor name if provided by the server
+      // Use visitor name from server (prioritize server-provided name)
       if (data.visitorName) {
         message.visitorName = data.visitorName;
+        console.log(`Server provided visitor name: ${data.visitorName} for passcode: ${passcode}`);
+      } else {
+        // Fallback to "Unknown" if server doesn't provide name
+        message.visitorName = "Unknown";
+        console.log(`No visitor name from server for passcode: ${passcode}, using Unknown`);
       }
-    } else if (data.passcode) {
+    } 
+    // Handle other events that might have passcode/visitor info
+    else if (data.passcode) {
       message.passcode = data.passcode;
       
-      // Add the visitor name if provided by the server
+      // Use visitor name from server if provided
       if (data.visitorName) {
         message.visitorName = data.visitorName;
+        console.log(`Server provided visitor name: ${data.visitorName} for passcode: ${data.passcode}`);
+      } else {
+        message.visitorName = "Unknown";
       }
     }
 
