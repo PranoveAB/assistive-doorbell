@@ -237,16 +237,18 @@ async def post_signal(request: Request):
                             'currentEvent': current_event
                         })
                     else:
-                        button_sequence.append(button_num)  # Track only buttons 2, 3, and 4
-                        print(f"{button.capitalize()} Pressed!")
+                        # Add the button press to the sequence
+                        button_sequence.append(button_num)
+                        print(f"{button.capitalize()} Pressed! Current sequence: {button_sequence}")
             
             # Ensure only the last 3 button presses are stored
             if len(button_sequence) > 3:
                 button_sequence.pop(0)  # Keep only the last 3 button presses
+                print(f"Sequence window shifted. Current sequence: {button_sequence}")
             
             # If exactly 3 button presses are stored, check the sequence
             if len(button_sequence) == 3:
-                print(f"Button Press Sequence: {button_sequence}")
+                print(f"Complete sequence detected: {button_sequence}")
                 
                 sequence_matched = True
                 passcode_number = 0
@@ -254,22 +256,22 @@ async def post_signal(request: Request):
                 
                 # Check predefined sequences and set appropriate event
                 if button_sequence == [2, 3, 4]:
-                    print("*** Rohit is here! ***")
+                    print("*** Sequence [2,3,4] recognized - Rohit is here! ***")
                     passcode_number = 1
                     current_event = f"correct_input_{passcode_number}"
                     visitor_name = "Rohit"
                 elif button_sequence == [2, 2, 2]:
-                    print("*** Francis is here! ***")
+                    print("*** Sequence [2,2,2] recognized - Francis is here! ***")
                     passcode_number = 2
                     current_event = f"correct_input_{passcode_number}"
                     visitor_name = "Francis"
                 elif button_sequence == [3, 3, 3]:
-                    print("*** Michael is here! ***")
+                    print("*** Sequence [3,3,3] recognized - Michael is here! ***")
                     passcode_number = 3
                     current_event = f"correct_input_{passcode_number}"
                     visitor_name = "Michael"
                 else:
-                    print("❌ Error! ❌")
+                    print(f"❌ Error! Unknown sequence {button_sequence} ❌")
                     current_event = "incorrect_input"
                     sequence_matched = False
                 
@@ -293,6 +295,8 @@ async def post_signal(request: Request):
                         'passcode': str(passcode_number),
                         'visitorName': visitor_name
                     })
+                    
+                    print(f"Visitor notification sent: {visitor_name} (passcode: {passcode_number})")
                 else:
                     # For incorrect sequence
                     vibration_timeout = threading.Timer(5.0, reset_vibration, [5])
@@ -304,53 +308,24 @@ async def post_signal(request: Request):
                         'triggerVibration': should_vibrate, 
                         'currentEvent': current_event
                     })
+                    
+                    print("Incorrect sequence notification sent")
                 
                 # Reset sequence after checking
                 button_sequence = []
+                print("Sequence reset for next visitor")
             
             return {
                 'success': True,
                 'triggerVibration': should_vibrate,
-                'currentEvent': current_event
+                'currentEvent': current_event,
+                'currentSequence': button_sequence
             }
-        
-        else:
-            # Handle other types of events
+            
+        # For direct event specifiers (rarely used but supported)
+        elif data.get('event'):
             event_type = data.get('event')
-            
-            if not event_type:
-                return JSONResponse(
-                    status_code=400,
-                    content={'success': False, 'message': 'No event type provided'}
-                )
-            
-            battery_regex = r'^low_battery_(\d+)$'
-            battery_match = re.match(battery_regex, event_type)
-            
-            if battery_match:
-                should_vibrate = True
-                current_event = event_type  # This will set current_event to "low_battery_XX"
-                battery_level = battery_match.group(1)
-                
-                # Clear any existing timeout thread
-                if vibration_timeout and vibration_timeout.is_alive():
-                    vibration_timeout.cancel()
-                
-                # Set new timeout thread
-                vibration_timeout = threading.Timer(10.0, reset_vibration, [10])
-                vibration_timeout.daemon = True
-                vibration_timeout.start()
-                
-                # Send to client or queue with proper format
-                await send_message({
-                    'triggerVibration': True, 
-                    'currentEvent': current_event,
-                    'batteryLevel': battery_level
-                })
-                return {'success': True}
-            
-            correct_input_regex = r'^correct_input_(\d+)$'
-            match = re.match(correct_input_regex, event_type)
+            print(f"Direct event request received: {event_type}")
             
             if event_type == 'main_button_pressed':
                 should_vibrate = True
@@ -373,9 +348,13 @@ async def post_signal(request: Request):
                 
                 return {'triggerVibration': should_vibrate}
             
-            elif match:
+            # For explicitly setting a visitor event without button sequence
+            correct_input_regex = r'^correct_input_(\d+)$'
+            match = re.match(correct_input_regex, event_type)
+            
+            if match:
                 passcode_number = match.group(1)
-                print(f"Correct input received with passcode: {passcode_number}")
+                print(f"Direct visitor passcode received: {passcode_number}")
                 
                 # Map passcode to visitor name
                 visitor_names = {
@@ -414,62 +393,26 @@ async def post_signal(request: Request):
                     'visitorName': visitor_name
                 }
             
-            elif event_type == 'incorrect_input':
-                should_vibrate = False
-                current_event = 'incorrect_input'
-                
-                # Clear any existing timeout thread
-                if vibration_timeout and vibration_timeout.is_alive():
-                    vibration_timeout.cancel()
-                
-                # Set new timeout thread
-                vibration_timeout = threading.Timer(5.0, reset_vibration, [5])
-                vibration_timeout.daemon = True
-                vibration_timeout.start()
-                
-                # Send to client or queue with proper format
-                await send_message({
-                    'triggerVibration': should_vibrate, 
-                    'currentEvent': current_event
-                })
-                
-                return {'triggerVibration': should_vibrate}
-            
-            elif event_type == 'SOS_event':
-                should_vibrate = True
-                current_event = 'SOS_event'
-                
-                # Clear any existing timeout thread
-                if vibration_timeout and vibration_timeout.is_alive():
-                    vibration_timeout.cancel()
-                
-                # Set new timeout thread
-                vibration_timeout = threading.Timer(15.0, reset_vibration, [15])
-                vibration_timeout.daemon = True
-                vibration_timeout.start()
-                
-                # Send to client or queue with proper format
-                await send_message({
-                    'triggerVibration': should_vibrate,
-                    'currentEvent': current_event,
-                    'status': "SOS"
-                })
-                
-                return {
-                    'triggerVibration': should_vibrate,
-                    'currentEvent': current_event,
-                    'status': "SOS"
-                }
-            
-            should_vibrate = False
-            current_event = 'no_event'
-            return {'triggerVibration': should_vibrate}
+            # If no recognized event was found
+            print(f"Unrecognized event type: {event_type}")
+            return JSONResponse(
+                status_code=400,
+                content={'success': False, 'message': f'Unrecognized event type: {event_type}'}
+            )
+        
+        # If neither device nor event was found in the request
+        else:
+            print("Invalid request format - missing device or event")
+            return JSONResponse(
+                status_code=400,
+                content={'success': False, 'message': 'Invalid request format - missing device or event'}
+            )
     
     except Exception as e:
         print(f"Error handling POST request: {e}")
         return JSONResponse(
             status_code=500,
-            content={'success': False, 'message': 'Internal Server Error'}
+            content={'success': False, 'message': f'Internal Server Error: {str(e)}'}
         )
 
 # Signal endpoint - GET to check current status

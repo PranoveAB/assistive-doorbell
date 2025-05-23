@@ -17,7 +17,7 @@ function connectWebSocket() {
     clearTimeout(reconnectTimer);
   }
 
-  socket = new WebSocket("ws://10.0.0.172:3000/signal");
+  socket = new WebSocket("ws://10.0.0.41:3000/signal");
 
   // When the connection is open
   socket.onopen = () => {
